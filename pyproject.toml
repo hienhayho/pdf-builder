@@ -1,0 +1,25 @@
+[project]
+name = "pdf-builder"
+version = "0.1.0"
+description = "A container-based PDF generation library with clean component architecture"
+requires-python = ">=3.11"
+dependencies = [
+    "fpdf2>=2.8.0",
+    "Pillow>=10.0.0",
+    "pydantic>=2.12.5",
+    "uharfbuzz>=0.53.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "black>=24.0.0",
+    "ruff>=0.6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pdf_builder"]
