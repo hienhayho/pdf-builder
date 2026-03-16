@@ -215,5 +215,5 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-assets/fpt_telecom_logo.png
+assets/*.png
 examples

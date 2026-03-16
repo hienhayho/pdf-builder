@@ -62,7 +62,8 @@ class Row(Container):
         pdf = context.pdf
         page_width = context.get_page_width()
         num_cols = len(self.children)
-        start_y = pdf.get_y()
+        start_y = pdf.get_y()  # Get current Y (might be centered by parent Box)
+        start_x = pdf.get_x()  # Get current X
 
         if num_cols == 0:
             return
@@ -70,68 +71,130 @@ class Row(Container):
         # Handle justify="space-between" - special case for footer-like layouts
         if self.justify == RowJustify.SPACE_BETWEEN.value and num_cols == 2:
             from pdf_builder.components.text import Text
+            from pdf_builder.components.image import Image
 
-            # Helper function to extract texts from child
-            def get_texts(child):
-                """Get list of Text components from child (Text or Row)."""
-                if isinstance(child, Text):
-                    return [child]
-                elif isinstance(child, Row):
-                    return [t for t in child.children if isinstance(t, Text)]
-                return []
+            # Render left child at left margin
+            left_child = self.children[0]
+            pdf.set_xy(pdf.l_margin, start_y)
 
-            # Get all text components
-            left_texts = get_texts(self.children[0])
-            right_texts = get_texts(self.children[1])
+            # Track text height for vertical alignment
+            text_height = 0
 
-            if not left_texts or not right_texts:
-                return
-
-            # Calculate total widths for both sides
-            left_total_width = 0
-            for text in left_texts:
-                pdf.set_font(pdf.font_family or "Arial", text.font_style, text.font_size)
-                content = text.get_rendered_content(context)
-                left_total_width += pdf.get_string_width(content)
-
-            right_total_width = 0
-            for text in right_texts:
-                pdf.set_font(pdf.font_family or "Arial", text.font_style, text.font_size)
-                content = text.get_rendered_content(context)
-                right_total_width += pdf.get_string_width(content)
-
-            # Get line height from first text
-            line_height = left_texts[0].line_height if left_texts else 10
-
-            # Save Y position to ensure both sides are on the same line
-            start_y = pdf.get_y()
-
-            # Render left texts using cell() with ln=0
-            for i, text in enumerate(left_texts):
-                content = text.get_rendered_content(context)
-                pdf.set_font(pdf.font_family or "Arial", text.font_style, text.font_size)
-                pdf.set_text_color(*text.color)
+            if isinstance(left_child, Text):
+                # Render text using cell() for inline rendering
+                content = left_child.get_rendered_content(context)
+                pdf.set_font(pdf.font_family or "Arial", left_child.font_style, left_child.font_size)
+                pdf.set_text_color(*left_child.color)
                 text_width = pdf.get_string_width(content)
-                pdf.cell(w=text_width, h=line_height, txt=content, ln=0)
+                text_height = left_child.line_height
+                pdf.cell(w=text_width, h=text_height, txt=content, ln=0)
                 pdf.set_text_color(0, 0, 0)
+            elif isinstance(left_child, Row):
+                # For nested Row, render children inline
+                for child in left_child.children:
+                    if isinstance(child, Text):
+                        content = child.get_rendered_content(context)
+                        pdf.set_font(pdf.font_family or "Arial", child.font_style, child.font_size)
+                        pdf.set_text_color(*child.color)
+                        text_width = pdf.get_string_width(content)
+                        text_height = max(text_height, child.line_height)  # Track max height
+                        pdf.cell(w=text_width, h=child.line_height, txt=content, ln=0)
+                        pdf.set_text_color(0, 0, 0)
+                    else:
+                        child.render(context)
+            else:
+                left_child.render(context)
+                # Estimate text height if not already set
+                if text_height == 0:
+                    text_height = 5  # Default estimate
 
-            # For space-between, always position right text at the right edge
-            # Go back to the same Y position and set X to right edge
+            # Get the Y position after left child
+            end_y_left = pdf.get_y()
+
+            # Calculate right child width and render at right edge
+            right_child = self.children[1]
+
+            # Estimate width of right child
+            right_width = 0
+            if isinstance(right_child, Text):
+                pdf.set_font(pdf.font_family or "Arial", right_child.font_style, right_child.font_size)
+                content = right_child.get_rendered_content(context)
+                right_width = pdf.get_string_width(content)
+            elif isinstance(right_child, Image):
+                # Use image width
+                right_width = right_child.width if right_child.width else 20
+            elif isinstance(right_child, Row):
+                # For nested Row, sum widths of children
+                for child in right_child.children:
+                    if isinstance(child, Text):
+                        pdf.set_font(pdf.font_family or "Arial", child.font_style, child.font_size)
+                        content = child.get_rendered_content(context)
+                        right_width += pdf.get_string_width(content)
+                    elif isinstance(child, Image):
+                        right_width += child.width if child.width else 20
+
+            # Position at right edge and render
             pdf.set_y(start_y)
-            right_x = pdf.w - pdf.r_margin - right_total_width
+            right_x = pdf.w - pdf.r_margin - right_width
             pdf.set_x(right_x)
 
-            # Render right texts using cell()
-            for i, text in enumerate(right_texts):
-                content = text.get_rendered_content(context)
-                pdf.set_font(pdf.font_family or "Arial", text.font_style, text.font_size)
-                pdf.set_text_color(*text.color)
+            if isinstance(right_child, Text):
+                # Render text using cell() for inline rendering
+                content = right_child.get_rendered_content(context)
+                pdf.set_font(pdf.font_family or "Arial", right_child.font_style, right_child.font_size)
+                pdf.set_text_color(*right_child.color)
                 text_width = pdf.get_string_width(content)
-                # Last text moves to next line
-                ln = 1 if i == len(right_texts) - 1 else 0
-                pdf.cell(w=text_width, h=line_height, txt=content, ln=ln)
+                pdf.cell(w=text_width, h=right_child.line_height, txt=content, ln=0)
                 pdf.set_text_color(0, 0, 0)
+            elif isinstance(right_child, Image):
+                # For Image, render directly at current position without ln()
+                from PIL import Image as PILImage
+                img = PILImage.open(right_child.path)
+                img_width_px, img_height_px = img.size
 
+                # Calculate dimensions
+                if right_child.width and right_child.keep_aspect_ratio:
+                    aspect_ratio = img_height_px / img_width_px
+                    calculated_height = right_child.width * aspect_ratio
+                else:
+                    calculated_height = right_child.height if right_child.height else img_height_px * 25.4 / 96
+
+                # Center image vertically relative to text
+                # If text_height is known, align image center with text center
+                if text_height > 0:
+                    # Calculate Y to center image relative to text
+                    image_y = start_y + (text_height - calculated_height) / 2
+                else:
+                    image_y = start_y
+
+                # Render image at calculated position
+                pdf.image(
+                    right_child.path,
+                    x=right_x,  # Use the calculated right position
+                    y=image_y,  # Vertically centered with text
+                    w=right_child.width,
+                    h=calculated_height,
+                    keep_aspect_ratio=right_child.keep_aspect_ratio,
+                )
+            elif isinstance(right_child, Row):
+                # For nested Row, render children inline
+                for child in right_child.children:
+                    if isinstance(child, Text):
+                        content = child.get_rendered_content(context)
+                        pdf.set_font(pdf.font_family or "Arial", child.font_style, child.font_size)
+                        pdf.set_text_color(*child.color)
+                        text_width = pdf.get_string_width(content)
+                        pdf.cell(w=text_width, h=child.line_height, txt=content, ln=0)
+                        pdf.set_text_color(0, 0, 0)
+                    else:
+                        child.render(context)
+            else:
+                right_child.render(context)
+
+            # Move to next line after the row
+            pdf.ln()  # Move to next line
+
+            return
         else:
             # Default layout with column widths
             if not self.column_widths:

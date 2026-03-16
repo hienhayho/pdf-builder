@@ -29,7 +29,7 @@ from .core import Component, Container, RenderContext
 from .containers import Box, Footer, Page, Row, RowJustify, Section
 
 # Components
-from .components import Heading, Image, Line, Spacer, Table, Text
+from .components import Heading, Image, Line, Spacer, Table, Text, TocItem
 
 # Exceptions
 from .exceptions import (
@@ -60,6 +60,7 @@ __all__ = [
     "Spacer",
     "Table",
     "Text",
+    "TocItem",
     # Exceptions
     "MissingDataModelError",
     "MissingTemplateFieldError",
