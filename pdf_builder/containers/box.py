@@ -82,9 +82,31 @@ class Box(Container):
             # Use explicit height if provided
             content_height = self.height
         else:
-            # Auto-calculate (simplified - fixed height for now)
-            # In a more advanced implementation, we'd pre-render children to measure
-            content_height = self.padding * 2 + 10  # Approximate height
+            # Auto-calculate by rendering children first to measure actual height
+            # Position cursor for content rendering
+            pdf.set_y(start_y + self.padding)
+            pdf.set_x(box_x + self.padding)
+
+            # Adjust margins for content area
+            if self.full_width:
+                pdf.set_margins(self.padding, pdf.t_margin, self.padding)
+            else:
+                # Calculate right margin based on box width
+                right_margin = pdf.w - box_x - box_width + self.padding
+                pdf.set_margins(box_x + self.padding, pdf.t_margin, right_margin)
+
+            # Render children to measure height
+            for i, child in enumerate(self.children):
+                child.render(context)
+                if i < len(self.children) - 1 and self.spacing > 0:
+                    pdf.ln(self.spacing)
+
+            # Calculate actual content height
+            end_y = pdf.get_y()
+            content_height = (end_y - start_y) + self.padding
+
+            # Reset position to draw border
+            pdf.set_y(start_y)
 
         # Draw background rectangle if color is set
         if self.background_color:
@@ -97,10 +119,18 @@ class Box(Container):
             pdf.set_line_width(self.border_width)
             pdf.rect(box_x, start_y, box_width, content_height, 'D')
 
+        # If we already rendered children (auto-height), skip rendering again
+        if not self.height:
+            # Move past the box
+            pdf.set_y(start_y + content_height)
+            # Restore original margins
+            pdf.set_margins(saved_margins[0], pdf.t_margin, saved_margins[1])
+            return
+
+        # For explicit height, render children now
         # Calculate vertical position for content based on vertical_align
         if self.vertical_align == "center":
             # For center alignment, estimate content height and center it
-            # Simplified: assume content is roughly one line of text (~5mm)
             estimated_content_height = 5  # mm
             vertical_offset = (content_height - estimated_content_height) / 2
             content_y = start_y + vertical_offset
@@ -119,8 +149,9 @@ class Box(Container):
         if self.full_width:
             pdf.set_margins(self.padding, pdf.t_margin, self.padding)
         else:
-            # Keep original margins but account for box position
-            pdf.set_margins(box_x + self.padding, pdf.t_margin, saved_margins[1])
+            # Calculate right margin based on box width
+            right_margin = pdf.w - box_x - box_width + self.padding
+            pdf.set_margins(box_x + self.padding, pdf.t_margin, right_margin)
 
         # Render children
         for i, child in enumerate(self.children):

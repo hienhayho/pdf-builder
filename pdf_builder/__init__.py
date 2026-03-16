@@ -29,7 +29,23 @@ from .core import Component, Container, RenderContext
 from .containers import Box, Footer, Page, Row, RowJustify, Section
 
 # Components
-from .components import Heading, Image, Line, Spacer, Table, Text, TocItem
+from .components import (
+    Divider,
+    Heading,
+    Image,
+    InlineText,
+    Line,
+    Link,
+    MultiLineText,
+    ScoreBoxes,
+    Spacer,
+    Table,
+    Text,
+    TocItem,
+)
+
+# Schemas
+from .schemas import ColumnConfig, FontStyle, InlineSegment, MultiLineItem, TableConfig, TextAlign
 
 # Exceptions
 from .exceptions import (
@@ -54,13 +70,25 @@ __all__ = [
     "RowJustify",
     "Section",
     # Components
+    "Divider",
     "Heading",
     "Image",
+    "InlineText",
     "Line",
+    "Link",
+    "MultiLineText",
+    "ScoreBoxes",
     "Spacer",
     "Table",
     "Text",
     "TocItem",
+    # Schemas
+    "ColumnConfig",
+    "FontStyle",
+    "InlineSegment",
+    "MultiLineItem",
+    "TableConfig",
+    "TextAlign",
     # Exceptions
     "MissingDataModelError",
     "MissingTemplateFieldError",

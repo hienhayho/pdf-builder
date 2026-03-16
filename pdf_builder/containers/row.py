@@ -70,8 +70,9 @@ class Row(Container):
 
         # Handle justify="space-between" - special case for footer-like layouts
         if self.justify == RowJustify.SPACE_BETWEEN.value and num_cols == 2:
-            from pdf_builder.components.text import Text
             from pdf_builder.components.image import Image
+            from pdf_builder.components.inline_text import InlineText
+            from pdf_builder.components.text import Text
 
             # Render left child at left margin
             left_child = self.children[0]
@@ -89,6 +90,31 @@ class Row(Container):
                 text_height = left_child.line_height
                 pdf.cell(w=text_width, h=text_height, txt=content, ln=0)
                 pdf.set_text_color(0, 0, 0)
+            elif isinstance(left_child, InlineText):
+                # Render InlineText segments inline using cell()
+                for segment in left_child.segments:
+                    # Get rendered text (with template replacement)
+                    text = segment.text
+                    if context.data:
+                        import re
+
+                        def replace_placeholder(match):
+                            field_name = match.group(1)
+                            if hasattr(context.data, field_name):
+                                value = getattr(context.data, field_name)
+                                if hasattr(value, "strftime"):
+                                    return value.strftime("%d.%m.%Y")
+                                return str(value)
+                            return match.group(0)
+
+                        text = re.sub(r"\{\{(\w+)\}\}", replace_placeholder, text)
+
+                    pdf.set_font(pdf.font_family or "Arial", style=segment.style, size=left_child.font_size)
+                    pdf.set_text_color(*segment.color)
+                    text_width = pdf.get_string_width(text)
+                    text_height = max(text_height, left_child.font_size * 0.5)
+                    pdf.cell(w=text_width, h=left_child.font_size * 0.5, txt=text, ln=0)
+                    pdf.set_text_color(0, 0, 0)
             elif isinstance(left_child, Row):
                 # For nested Row, render children inline
                 for child in left_child.children:
@@ -120,6 +146,27 @@ class Row(Container):
                 pdf.set_font(pdf.font_family or "Arial", right_child.font_style, right_child.font_size)
                 content = right_child.get_rendered_content(context)
                 right_width = pdf.get_string_width(content)
+            elif isinstance(right_child, InlineText):
+                # Calculate total width of all segments
+                for segment in right_child.segments:
+                    # Get rendered text (with template replacement)
+                    text = segment.text
+                    if context.data:
+                        import re
+
+                        def replace_placeholder(match):
+                            field_name = match.group(1)
+                            if hasattr(context.data, field_name):
+                                value = getattr(context.data, field_name)
+                                if hasattr(value, "strftime"):
+                                    return value.strftime("%d.%m.%Y")
+                                return str(value)
+                            return match.group(0)
+
+                        text = re.sub(r"\{\{(\w+)\}\}", replace_placeholder, text)
+
+                    pdf.set_font(pdf.font_family or "Arial", style=segment.style, size=right_child.font_size)
+                    right_width += pdf.get_string_width(text)
             elif isinstance(right_child, Image):
                 # Use image width
                 right_width = right_child.width if right_child.width else 20
@@ -146,6 +193,30 @@ class Row(Container):
                 text_width = pdf.get_string_width(content)
                 pdf.cell(w=text_width, h=right_child.line_height, txt=content, ln=0)
                 pdf.set_text_color(0, 0, 0)
+            elif isinstance(right_child, InlineText):
+                # Render InlineText segments inline using cell()
+                for segment in right_child.segments:
+                    # Get rendered text (with template replacement)
+                    text = segment.text
+                    if context.data:
+                        import re
+
+                        def replace_placeholder(match):
+                            field_name = match.group(1)
+                            if hasattr(context.data, field_name):
+                                value = getattr(context.data, field_name)
+                                if hasattr(value, "strftime"):
+                                    return value.strftime("%d.%m.%Y")
+                                return str(value)
+                            return match.group(0)
+
+                        text = re.sub(r"\{\{(\w+)\}\}", replace_placeholder, text)
+
+                    pdf.set_font(pdf.font_family or "Arial", style=segment.style, size=right_child.font_size)
+                    pdf.set_text_color(*segment.color)
+                    text_width = pdf.get_string_width(text)
+                    pdf.cell(w=text_width, h=right_child.font_size * 0.5, txt=text, ln=0)
+                    pdf.set_text_color(0, 0, 0)
             elif isinstance(right_child, Image):
                 # For Image, render directly at current position without ln()
                 from PIL import Image as PILImage

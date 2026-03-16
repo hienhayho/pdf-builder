@@ -5,6 +5,7 @@ from pathlib import Path
 from fpdf import FPDF
 from pydantic import BaseModel
 
+from .components.inline_text import InlineText
 from .components.text import Text
 from .core import Container, RenderContext
 from .containers import Page
@@ -89,6 +90,8 @@ class Document:
         def collect_fields(component):
             """Recursively collect fields from component tree."""
             if isinstance(component, Text):
+                fields.update(component.get_placeholders())
+            elif isinstance(component, InlineText):
                 fields.update(component.get_placeholders())
             if isinstance(component, Container):
                 for child in component.children:
