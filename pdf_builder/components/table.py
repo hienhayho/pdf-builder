@@ -157,15 +157,41 @@ class Table(Component):
 
                 # Render cell content
                 if isinstance(cell_data, Component):
-                    # Save current position
+                    # Save current position and margins
                     cell_x = current_x + 1.5
                     cell_y = start_y + 1.5
+                    original_r_margin = pdf.r_margin
+                    original_x = pdf.get_x()
+                    original_y = pdf.get_y()
+
+                    # Temporarily constrain right margin to cell boundary
+                    # This makes components respect cell width
+                    page_width = pdf.w
+                    cell_right_edge = current_x + col_width
+                    pdf.set_right_margin(page_width - cell_right_edge + 1.5)  # +1.5 for padding
 
                     # Set position for component
                     pdf.set_xy(cell_x, cell_y)
 
-                    # Render Component (it will use current position)
-                    cell_data.render(context)
+                    # Render Component with constrained width
+                    try:
+                        # Skip Container components (Section, Box, etc.) as they don't work well in cells
+                        if isinstance(cell_data, Container):
+                            # Render as string fallback for containers
+                            pdf.set_xy(current_x + 1.5, start_y + 1.5)
+                            pdf.multi_cell(
+                                col_width - 3,
+                                self.font_size * 0.4,
+                                str(cell_data),
+                                border=0,
+                                align=align,
+                                fill=False,
+                            )
+                        else:
+                            cell_data.render(context)
+                    finally:
+                        # Restore original margin
+                        pdf.set_right_margin(original_r_margin)
 
                     # Note: Components may move the cursor, but we don't need to track it
                     # since we set absolute positions for each cell
@@ -202,9 +228,21 @@ class Table(Component):
 
         for cell_data, col_width in zip(row_data, col_widths):
             if isinstance(cell_data, Component):
-                # For Components, estimate height (can be refined)
-                # For now, use a default height
-                cell_height = self.font_size * 2
+                # For Components, try to estimate height based on type
+                # Import here to avoid circular imports
+                from pdf_builder.components import InlineText
+
+                if isinstance(cell_data, InlineText):
+                    # Count newlines in all segments to estimate height
+                    total_newlines = 0
+                    for segment in cell_data.segments:
+                        total_newlines += segment.text.count("\n")
+                    # Each line needs line_height, plus padding
+                    num_lines = total_newlines + 1  # +1 for first line
+                    cell_height = num_lines * (cell_data.font_size * 0.5) + 3
+                else:
+                    # Default height for other components
+                    cell_height = self.font_size * 3
             else:
                 # For strings, calculate wrapped text height
                 # Get number of lines needed
