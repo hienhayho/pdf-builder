@@ -22,6 +22,7 @@ class InlineSegment(BaseModel):
     Example:
         InlineSegment(text="Bold text", style=FontStyle.BOLD)
         InlineSegment(text="Red text", style=FontStyle.REGULAR, color=(255, 0, 0))
+        InlineSegment(text="Click here", is_link=True, url="https://example.com", color=(0, 0, 255))
     """
 
     text: str = Field(..., description="The text content to render")
@@ -31,6 +32,14 @@ class InlineSegment(BaseModel):
     color: tuple[int, int, int] = Field(
         default=(0, 0, 0),
         description="RGB color tuple (0-255 for each component)",
+    )
+    is_link: bool = Field(
+        default=False,
+        description="Whether this segment is a clickable hyperlink",
+    )
+    url: str | None = Field(
+        default=None,
+        description="URL for the link (required if is_link=True)",
     )
 
     class Config:

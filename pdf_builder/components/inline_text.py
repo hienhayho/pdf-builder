@@ -70,15 +70,24 @@ class InlineText(Component):
                 text = re.sub(r"\{\{(\w+)\}\}", replace_placeholder, text)
 
             # Set the style and color for this segment
+            # Add underline to style if it's a link
+            segment_style = segment.style
+            if segment.is_link and "U" not in segment_style:
+                segment_style = segment_style + "U" if segment_style else "U"
+
             pdf.set_font(
                 pdf.font_family or "Arial",
-                style=segment.style,
+                style=segment_style,
                 size=self.font_size,
             )
             pdf.set_text_color(*segment.color)
 
             # Use write() for automatic text wrapping and flowing text
-            pdf.write(h=line_height, text=text)
+            # If it's a link, pass the URL to make it clickable
+            if segment.is_link and segment.url:
+                pdf.write(h=line_height, text=text, link=segment.url)
+            else:
+                pdf.write(h=line_height, text=text)
 
         # Move to next line after all segments (if enabled)
         if self.new_line:

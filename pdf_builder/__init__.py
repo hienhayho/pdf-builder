@@ -45,7 +45,7 @@ from .components import (
 )
 
 # Schemas
-from .schemas import ColumnConfig, FontStyle, InlineSegment, MultiLineItem, TableConfig, TextAlign
+from .schemas import ColumnConfig, FontStyle, InlineSegment, MultiLineItem, TableCell, TableConfig, TextAlign
 
 # Exceptions
 from .exceptions import (
@@ -87,6 +87,7 @@ __all__ = [
     "FontStyle",
     "InlineSegment",
     "MultiLineItem",
+    "TableCell",
     "TableConfig",
     "TextAlign",
     # Exceptions
